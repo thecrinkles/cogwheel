@@ -1,33 +1,30 @@
 # Hierarchical machines
 
-Cogwheel does not support hierarchical machines by default. However, the API is build to allow a certain level of freedom to facilitate (unoptimised) hierarchical machines. An example can be found [here](../tests/examples/hierarchical.test.ts). This example follows these steps.
+Cogwheel does not support hierarchical machines out of the box, but the API leaves enough freedom to build a simple (unoptimised) version: the outer machine keeps the current state of the inner machine in its context, and an action feeds every event through the inner machine. The complete example is in [tests/examples/hierarchical.test.ts](../tests/examples/hierarchical.test.ts).
 
-1. Create a generic action to allow allow for transitions internally.
+1. Create an action that runs the event through an inner machine and stores the result in the context.
 
 ```js
-function nestedTransitionAction(config, init) {
-  return function ({ state, even, assign }) {
-    const _machine = machine({
-      states: config,
-      init: state.context.current || init,
-    });
-    _machine.send(event);
-    assign({ current: _machine.current });
+function nestedTransition(states, init) {
+  return function ({ state, event, assign }) {
+    const inner = machine({ states, init: state.context.current || init });
+    inner.send(event);
+    assign({ current: inner.current });
   };
 }
 ```
 
-2. Create a generic action to transition automatically when the inner machine is in a certain state.
+2. Create an action that transitions the outer machine once the inner machine reaches a certain state.
 
 ```js
-function nestedExitTransition(exit, transition) {
+function nestedExit(exit, type) {
   return function ({ state, send }) {
-    if (state.context.current === exit) send({ type: transition });
+    if (state.context.current === exit) send({ type });
   };
 }
 ```
 
-3. Create the configuration of the inner state machine.
+3. Define the states of the inner machine.
 
 ```js
 const inner = {
@@ -37,21 +34,22 @@ const inner = {
 };
 ```
 
-4. Create the configuration of the outer state machine. Note that you have to create self-transitions for each of the possible inner-transisions in this configuration to allow for this method to work.
+4. Define the outer machine. Every event of the inner machine needs a self-transition on the outer state, so the `_entry` actions run again and feed the event through.
 
 ```js
-const outer = {
-  green: {
-    GO: { target: 'red', guard: ({ context }) => context.current === 'stop' },
-    START: 'green',
-    FINISH: 'green',
-    _entry: [
-      nestedTransitionAction(inner, 'walk'),
-      nestedExitTransition('stop', 'GO'),
-    ],
+const outer = machine({
+  init: 'red',
+  context: { current: 'walk' },
+  states: {
+    green: {
+      GO: { target: 'red', guard: ({ context }) => context.current === 'stop' },
+      START: 'green',
+      FINISH: 'green',
+      _entry: [nestedTransition(inner, 'walk'), nestedExit('stop', 'GO')],
+    },
+    red: { GO: 'green' },
   },
-  red: { GO: 'green' },
-};
+});
 ```
 
 ## [Next: front-end framework implementation](./front-end-frameworks.md)

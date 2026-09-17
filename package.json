@@ -2,24 +2,33 @@
   "name": "cogwheel",
   "version": "4.3.2",
   "description": "Simple state machine",
-  "module": "dist/index.js",
+  "type": "module",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
   "files": [
     "dist"
   ],
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest watch",
-    "build": "pnpm run clean && tsc",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "prepublishOnly": "pnpm run build",
     "prettier": "prettier --ignore-path .gitignore --check \"**/*.+(js|mjs|json|ts|tsx)\"",
     "lint": "eslint",
-    "validate": "pnpm run \"/^(prettier|lint|test|build)$/\""
+    "validate": "pnpm run \"/^(prettier|lint|typecheck|test|build)$/\"",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vyckes/cogwheel.git"
+    "url": "git+https://github.com/thecrinkles/cogwheel.git"
   },
   "keywords": [
     "fsm",
@@ -29,9 +38,9 @@
   "author": "Kevin Pennekamp <github@crinkles.dev>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/vyckes/cogwheel/issues"
+    "url": "https://github.com/thecrinkles/cogwheel/issues"
   },
-  "homepage": "https://github.com/vyckes/cogwheel#readme",
+  "homepage": "https://github.com/thecrinkles/cogwheel#readme",
   "devDependencies": {
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",

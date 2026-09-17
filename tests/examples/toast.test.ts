@@ -1,12 +1,12 @@
 import { test, expect } from "vitest";
 import { machine } from "../../src";
-import { Event, State, Action } from "../../src/types";
+import { CwEvent, CwState, CwAction } from "../../src";
 import { delay } from "../helpers";
 
 type Context = { label: string };
-type ToastEvent = Event & { label?: string };
+type ToastEvent = CwEvent & { label?: string };
 
-const visibleAction: Action<Context, ToastEvent> = ({
+const visibleAction: CwAction<Context, ToastEvent> = ({
   state,
   event,
   assign,
@@ -16,7 +16,7 @@ const visibleAction: Action<Context, ToastEvent> = ({
   send({ type: "CLOSED" }, 10);
 };
 
-const config: Record<string, State<Context, ToastEvent>> = {
+const config: Record<string, CwState<Context, ToastEvent>> = {
   visible: {
     CLOSED: "invisible",
     OPENED: "visible",

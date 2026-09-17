@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { test, expect, beforeEach, vi } from "vitest";
-import { machine, Action, MachineState, Event, State } from "../src";
+import { machine, CwAction, CwMachineState, CwEvent, CwState } from "../src";
 import { delay } from "./helpers";
 
 // Types
@@ -13,9 +13,9 @@ const configDefault = {
   green: { CHANGE: "yellow" },
   yellow: { CHANGE: "red" },
   red: {},
-};
+} as const;
 
-const countAssign: Action<Context, CountEvent> = function ({
+const countAssign: CwAction<Context, CountEvent> = function ({
   state,
   event,
   assign,
@@ -26,7 +26,7 @@ const countAssign: Action<Context, CountEvent> = function ({
 
 type CountEvent = { type: string; count?: number };
 
-const logAction: Action<{}, Event> = function (state) {
+const logAction: CwAction<{}, CwEvent> = function (state) {
   cb(state);
 };
 
@@ -60,7 +60,7 @@ test("Send - transition object", () => {
   const config = {
     green: { CHANGE: { target: "yellow" } },
     yellow: {},
-  };
+  } as const;
 
   const service = machine({ init: "green", states: config });
   service.send({ type: "CHANGE" });
@@ -70,12 +70,14 @@ test("Send - transition object", () => {
 test("immutability", () => {
   const service = machine({ init: "green", states: configDefault });
   expect(service.current).toBe("green");
+  // @ts-expect-error writes are ignored at runtime and rejected by the types
   service.current = "yellow";
   expect(service.current).toBe("green");
 });
 
 test("Incorrect initial state", () => {
   expect(() =>
+    // @ts-expect-error also caught at compile time
     machine({ init: "WrongInitialState", states: configDefault }),
   ).toThrow("invalid initial state");
 });
@@ -85,8 +87,9 @@ test("Non-existing target in configuration", () => {
     green: { CHANGE: "blue" },
     yellow: { CHANGE: "red" },
     red: {},
-  };
+  } as const;
 
+  // @ts-expect-error also caught at compile time
   expect(() => machine({ init: "green", states: config })).toThrow(
     "non-existing transition target",
   );
@@ -119,7 +122,7 @@ test("General purpose action (double)", () => {
 });
 
 test("Entry actions - auto-transition", async () => {
-  const configAutomatic: Record<string, State<{}, Event>> = {
+  const configAutomatic: Record<string, CwState<{}, CwEvent>> = {
     green: { CHANGE: "yellow" },
     yellow: {
       CHANGE: "red",
@@ -140,7 +143,7 @@ test("Entry actions - auto-transition", async () => {
 });
 
 test("Entry actions - auto-transition on initial state", () => {
-  const configStart: Record<string, State<{}, Event>> = {
+  const configStart: Record<string, CwState<{}, CwEvent>> = {
     start: {
       _entry: [({ send }) => send({ type: "CHANGE" })],
       CHANGE: "end",
@@ -176,7 +179,7 @@ test("Entry actions - update context", () => {
 test("Entry actions - update context based on transition input", () => {
   type Context = { count: number };
 
-  const configStart: Record<string, State<Context, Event>> = {
+  const configStart: Record<string, CwState<Context, CwEvent>> = {
     start: { CHANGE: "end" },
     end: {
       _entry: [countAssign],
@@ -197,7 +200,7 @@ test("Entry actions - update context based on transition input", () => {
 test("Entry actions - multiple actions", () => {
   type Context = { count: number };
 
-  const configStart: Record<string, State<Context, Event>> = {
+  const configStart: Record<string, CwState<Context, CwEvent>> = {
     start: { CHANGE: "middle" },
     middle: {
       CHANGE: "end",
@@ -239,7 +242,7 @@ test("Exit actions - update context", () => {
   expect(service.context.count).toBe(1);
 });
 
-test("Transition actions - update context", () => {
+test("CwTransition actions - update context", () => {
   type Context = { count: number };
 
   const configStart = {
@@ -263,14 +266,14 @@ test("Transition actions - update context", () => {
   expect(service.context.count).toBe(1);
 });
 
-test("Guard - allowed", () => {
+test("CwGuard - allowed", () => {
   type Context = { allowed: boolean };
 
   const config = {
     green: {
       CHANGE: {
         target: "yellow",
-        guard: (s: MachineState<Context>) => s.context.allowed,
+        guard: (s: CwMachineState<Context>) => s.context.allowed,
       },
     },
     yellow: {},
@@ -286,14 +289,14 @@ test("Guard - allowed", () => {
   expect(service.current).toBe("yellow");
 });
 
-test("Guard - not allowed", () => {
+test("CwGuard - not allowed", () => {
   type Context = { allowed: boolean };
 
   const config = {
     green: {
       CHANGE: {
         target: "yellow",
-        guard: (s: MachineState<Context>) => s.context.allowed,
+        guard: (s: CwMachineState<Context>) => s.context.allowed,
       },
     },
     yellow: {},
@@ -325,9 +328,9 @@ test("listener - default behaviour", () => {
 // This tests validates that this does not happen anymore
 test("listener - nested context maintains state", () => {
   type Context = { data: object };
-  type FetchEvent = Event & { data?: unknown };
+  type FetchEvent = CwEvent & { data?: unknown };
 
-  const successEntry: Action<Context, FetchEvent> = ({ assign, event }) =>
+  const successEntry: CwAction<Context, FetchEvent> = ({ assign, event }) =>
     assign({ data: event.data } as Context);
   const service = machine({
     init: "pending",

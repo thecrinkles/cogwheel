@@ -1,20 +1,20 @@
 import { test, expect } from "vitest";
 import { machine } from "../../src";
-import { MachineState, State, Event, Action } from "../../src/types";
+import { CwMachineState, CwState, CwEvent, CwAction } from "../../src";
 
 type O = Record<string, unknown>;
 type N = Record<string, never>;
-type Context = MachineState<N>;
+type Context = CwMachineState<N>;
 type NestedAction<T extends O> = (
-  config: Record<string, State<T, Event>>,
+  config: Record<string, CwState<T, CwEvent>>,
   init: string,
-) => Action<Context, Event>;
+) => CwAction<Context, CwEvent>;
 type NestedTransition = (
   exit: string,
   transition: string,
-) => Action<Context, Event>;
+) => CwAction<Context, CwEvent>;
 
-const innerConfig: Record<string, State<N, Event>> = {
+const innerConfig: Record<string, CwState<N, CwEvent>> = {
   walk: { START: "blink" },
   blink: { FINISH: "stop" },
   stop: {},
@@ -37,7 +37,7 @@ const nestedExitTransition: NestedTransition = function (exit, transition) {
   };
 };
 
-const outerConfig: Record<string, State<Context, Event>> = {
+const outerConfig: Record<string, CwState<Context, CwEvent>> = {
   green: {
     GO: { target: "red", guard: ({ context }) => context.current === "stop" },
     START: "green",

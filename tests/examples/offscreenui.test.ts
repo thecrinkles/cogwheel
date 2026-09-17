@@ -1,10 +1,10 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { test, expect } from "vitest";
 import { machine } from "../../src";
-import { Action, Event } from "../../src/types";
+import { CwAction, CwEvent } from "../../src";
 import { delay } from "../helpers";
 
-const toggling: Action<{}, Event> = ({ send }) => {
+const toggling: CwAction<{}, CwEvent> = ({ send }) => {
   send({ type: "TOGGLE" }, 10);
 };
 
@@ -19,7 +19,7 @@ const config = {
     TOGGLE: "visible",
     _entry: [toggling],
   },
-};
+} as const;
 
 test("Offscreen UI - open", async () => {
   const service = machine({ init: "invisible", states: config });

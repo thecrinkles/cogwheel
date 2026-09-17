@@ -1,13 +1,11 @@
 {
-  "include": ["src"],
-  "exclude": ["**/*.spec.ts", "**/*.test.ts"],
+  "include": ["src", "tests"],
   "compilerOptions": {
     "lib": ["esnext", "dom"],
     "target": "es2020",
-    "module": "node20",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "declaration": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
     "strict": true,
     "noImplicitAny": false
   }

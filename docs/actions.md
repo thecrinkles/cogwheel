@@ -1,110 +1,92 @@
 # Actions
 
-You are able to define 'actions'. These actions are executed when you leave a state (after guard checks), when you enter a state, or when a transition is executed. Actions can be used to invoke external side-effects (e.g. start a fetch request), or invoke changes within the state machine via an `ActionObject: { type: string, payload?: unknown }`. Each action takes the current state and context as input parameters. In addition, the values coming from `machine.send(...)` or via the `send` action creator (more on that later), comes as a third parameter.
+Actions are functions that run as part of a transition. They can be attached to a transition (`actions`), to entering a state (`_entry`) or to leaving a state (`_exit`). Use them for side-effects (start a request, log) or to change the machine through `send` and `assign`.
 
-```js
-import type { MachineState, Callbacks, Event } from 'cogwheel/types';
-// MachineState = { current, id, context };
-type Ctx = {};
-const action = ({ state: MachineState<Ctx>, event: Event, send: Send<Event>, assign: Assign<Ctx> }) => { ... }
-```
+Every action receives a single argument:
 
-> NOTE: `_entry` and `_exit` are reserved transition names to provide for a simplified API.
+```ts
+import { machine, type CwAction } from 'cogwheel';
 
-```js
-const config = {
-  init: 'green',
-  states: {
-    green: {
-      CHANGE: {
-        target: 'red',
-        actions: [
-          ({ state }) => {
-            console.log(state);
-          },
-        ],
-      },
-    },
-    red: {
-      _entry: [
-        ({ state, event }) => {
-          console.log(state, event);
-        },
-      ],
-      _exit: [
-        ({ state, event }) => {
-          console.log(state, event);
-        },
-        ({ state }) => {
-          console.log(state);
-        },
-      ],
-    },
-  },
+type Context = { count: number };
+type CounterEvent = { type: 'INC'; by?: number } | { type: 'RESET' };
+
+const log: CwAction<Context, CounterEvent> = ({ state, event, send, assign }) => {
+  state; // { current, id, context }: a snapshot of the machine
+  event; // the event that triggered the transition
+  send; // send(event, delay?): trigger the next transition
+  assign; // assign(context): replace the context
 };
 ```
 
-The `actions` on transactions and `_entry`/`_exit` on state configuration allow for multiple actions. The configured actions are executed in their defined order. An example can be seen in the above code for the `red` state's `_exit` action list.
+> `_entry` and `_exit` are reserved keys of a state and cannot be used as event names.
 
-You are free to define actions in the way you want, but there are helper functions for creation an `ActionObject`. These are called action creaters.
-
-## Callbacks
-
-The `callbacks.send(event, delay?: number)` action allows you to automatically fire a new (delayed) transition on entry of a state.
-
-```js
-const config = {
-  init: 'green',
-  states: {
-    green: { CHANGE: 'red' },
-    red: {
-      CHANGE: 'green',
-      _entry: [({ send }) => send({ type: 'CHANGE' }, 3000)],
-    },
+```ts
+const states = {
+  green: {
+    CHANGE: { target: 'red', actions: [log] },
   },
-};
+  red: {
+    RESET: 'green',
+    _entry: [log],
+    _exit: [log, log],
+  },
+} as const;
 ```
 
-**NOTE**: after a send action, no further actions are executed anymore, as a new transition is invoked.
+Multiple actions run in their defined order. On a transition the order is: guard, `_exit` of the current state, `actions` of the transition, state change, `_entry` of the new state, listeners. The `_entry` actions of the initial state run when the machine is created, with the event `{ type: '__init__' }`.
 
-The `callbacks.assign(newContext)` action allows you to update the context of the machine.
+## send
 
-```js
-const config = {
-  init: 'green',
+`send(event, delay?)` triggers a new transition from inside an action. With a delay in milliseconds the transition is scheduled. Only one delayed transition is pending at a time; any new `send` cancels it, which makes a debounce a small machine:
+
+```ts
+const debounce = machine({
+  init: 'idle',
   states: {
-    green: { CHANGE: 'yellow' },
-    yellow: {
-      CHANGE: 'red',
-      _entry: [
-        ({ state, assign }) => assign({ count: state.context.count + 1 }),
-      ],
+    idle: { CHANGED: 'debouncing' },
+    debouncing: {
+      CHANGED: 'debouncing',
+      GO: 'executing',
+      _entry: [({ send }) => send({ type: 'GO' }, 300)],
     },
-    yellow: {
-      CHANGE: 'green',
-      _entry: [
-        ({ state, assign }) =>
-          assign({ count: state.context.count + event.count }),
-      ],
-    },
+    executing: { FINISHED: 'idle' },
   },
+});
+```
+
+Every `CHANGED` re-enters `debouncing`, which cancels the pending `GO` and schedules a new one. Without a delay the transition runs synchronously, before the remaining actions in the list.
+
+## assign
+
+`assign(context)` replaces the context of the machine. The context is deep-frozen, so build a new object instead of mutating the existing one.
+
+```ts
+const increment: CwAction<Context, CounterEvent> = ({ state, event, assign }) => {
+  if (event.type === 'INC') assign({ count: state.context.count + (event.by ?? 1) });
 };
 
-// { count: 2 } corresponds with the 'values' in the entry action of the red state
-machine.send({ type: 'CHANGE', count: 2 });
+const counter = machine({
+  init: 'idle',
+  context: { count: 0 },
+  states: {
+    idle: { INC: { target: 'idle', actions: [increment] } },
+  },
+});
+
+counter.send({ type: 'INC', by: 2 });
+counter.context.count; // 2
 ```
 
 ## Listeners
 
-Listeners are special actions that trigger on each successful transition of the machine. You can have multiple listeners on the machine.
+Listeners receive the same argument as actions and run after every successful transition, after the `_entry` actions. A machine can have multiple listeners.
 
-```js
-function listener({ state }) {
-  console.log(state);
-}
+```ts
+const remove = counter.listen(({ state, event }) => {
+  console.log(state.current, event.type);
+});
 
-const remove = machine.listen(listener); // subscribe
-remove(); // remove subscription to avoid memory leaks
+remove(); // unsubscribe to avoid memory leaks
 ```
 
 ## [Next: Hierarchical machines](./hierarchical-machines.md)

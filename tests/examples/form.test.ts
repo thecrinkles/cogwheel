@@ -1,6 +1,6 @@
 import { test, expect } from "vitest";
 import { machine } from "../../src";
-import { MachineState, State, Event, Action } from "../../src/types";
+import { CwMachineState, CwState, CwEvent, CwAction } from "../../src";
 
 type O = Record<string, unknown>;
 type Context = {
@@ -11,20 +11,24 @@ type Context = {
 type InitEvent = { type: string; values: O };
 type ErrorEvent = { type: string; errors: O };
 type ModifierEvent = { type: string; key: string; value: unknown };
-type FormEvent = Event | InitEvent | ModifierEvent | ErrorEvent;
+type FormEvent = CwEvent | InitEvent | ModifierEvent | ErrorEvent;
 
 function validator(ctx: Context) {
   if (ctx.values.key === "test") return {};
   return { key: "required" };
 }
 
-function isValid(s: MachineState<Context>) {
+function isValid(s: CwMachineState<Context>) {
   const _res = validator(s.context);
   if (Object.keys(_res).length === 0) return true;
   return false;
 }
 
-const updateAction: Action<Context, FormEvent> = ({ state, event, assign }) => {
+const updateAction: CwAction<Context, FormEvent> = ({
+  state,
+  event,
+  assign,
+}) => {
   const _ctx = { ...state.context };
   const _e = event as ModifierEvent;
   _ctx.values[_e.key] = _e.value;
@@ -32,18 +36,22 @@ const updateAction: Action<Context, FormEvent> = ({ state, event, assign }) => {
   assign(_ctx);
 };
 
-const initAction: Action<Context, FormEvent> = ({ event, assign }) => {
+const initAction: CwAction<Context, FormEvent> = ({ event, assign }) => {
   assign({ values: (event as InitEvent).values, errors: {} });
 };
 
-const errorAction: Action<Context, FormEvent> = ({ event, state, assign }) => {
+const errorAction: CwAction<Context, FormEvent> = ({
+  event,
+  state,
+  assign,
+}) => {
   assign({
     ...state.context,
     errors: (event as ErrorEvent).errors,
   });
 };
 
-const validationAction: Action<Context, FormEvent> = ({ state, send }) => {
+const validationAction: CwAction<Context, FormEvent> = ({ state, send }) => {
   if (isValid(state)) send({ type: "SUBMITTED" });
   else
     send({
@@ -52,7 +60,7 @@ const validationAction: Action<Context, FormEvent> = ({ state, send }) => {
     } as ErrorEvent);
 };
 
-const config: Record<string, State<Context, FormEvent>> = {
+const config: Record<string, CwState<Context, FormEvent>> = {
   init: { LOADED: "ready" },
   ready: {
     CHANGED: "touched",
