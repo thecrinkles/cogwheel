@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { test, expect, beforeEach, vi } from "vitest";
-import { machine, CwAction, CwMachineState, CwEvent, CwState } from "../src";
+import {
+  machine,
+  nextState,
+  CwAction,
+  CwMachineState,
+  CwEvent,
+  CwState,
+} from "../src";
 import { delay } from "./helpers";
 
 // Types
@@ -346,4 +353,24 @@ test("listener - nested context maintains state", () => {
   expect(service.context).toEqual({ data: { arr: ["test"] } });
 
   remove();
+});
+
+test("nextState - returns the target or undefined", () => {
+  expect(nextState(configDefault, "green", { type: "CHANGE" })).toBe("yellow");
+  expect(nextState(configDefault, "red", { type: "CHANGE" })).toBeUndefined();
+  expect(nextState(configDefault, "green", { type: "NOPE" })).toBeUndefined();
+});
+
+test("nextState - guards see the given context, which is not frozen", () => {
+  const positive = (s: CwMachineState<Context>) => s.context.count > 0;
+  const states = {
+    idle: { GO: { target: "busy", guard: positive } },
+    busy: {},
+  } as const;
+  const ctx = { count: 1 };
+  expect(nextState(states, "idle", { type: "GO" }, ctx)).toBe("busy");
+  expect(
+    nextState(states, "idle", { type: "GO" }, { count: 0 }),
+  ).toBeUndefined();
+  expect(Object.isFrozen(ctx)).toBe(false);
 });

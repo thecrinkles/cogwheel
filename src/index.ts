@@ -217,3 +217,22 @@ export function machine<
   execute({ type: "__init__" } as E, states[config.init]._entry);
   return new Proxy(_state, { set: () => true });
 }
+
+// Stateless step: the state `from` moves to on `event`, or undefined if it doesn't.
+// ponytail: builds a throwaway machine per call, so from's _entry runs again and
+// context changes made by actions are discarded.
+export function nextState<
+  C extends object,
+  E extends CwEvent = CwEvent,
+  S extends string = string,
+>(
+  states: Record<S, CwState<C, E, NoInfer<S>>>,
+  from: NoInfer<S>,
+  event: E,
+  context?: C,
+): S | undefined {
+  // clone: machine() deep-freezes its context in place, don't freeze the caller's
+  const ctx = context && structuredClone(context);
+  const step = machine<C, E, S>({ init: from, states, context: ctx });
+  return step.send(event) ? step.current : undefined;
+}

@@ -26,6 +26,19 @@ The returned machine is read-only. Writes to `service.current` or `service.conte
 
 An invalid configuration throws when the machine is created: `invalid initial state` when `init` is not a state, `non-existing transition target` when a transition points to an unknown state.
 
+## Stateless transitions
+
+When the current state lives somewhere else, such as a database row or a request, `nextState(states, from, event, context?)` gives you the state that `from` moves to, or `undefined` when there is no transition. It does not keep a machine around.
+
+```ts
+import { nextState } from 'cogwheel';
+
+nextState(states, 'green', { type: 'CHANGE' }); // 'yellow'
+nextState(states, 'red', { type: 'UNKNOWN' }); // undefined
+```
+
+Each call creates a throwaway machine, so guards and actions run as usual. Pass the optional `context` when guards or actions need it; it is copied, not frozen. Changes that actions make to the context are discarded, only the state name is returned.
+
 ## Context
 
 The machine can carry a context, which makes it an 'extended finite state machine'. Provide the initial value with the `context` property of the configuration and read it via `service.context`. The context is deep-frozen; it changes through the `assign` function inside [actions](./actions.md).
