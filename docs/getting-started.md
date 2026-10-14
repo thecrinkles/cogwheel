@@ -69,6 +69,21 @@ const typed = machine({
 typed.current; // 'green' | 'yellow'
 ```
 
+For a configuration declared with `as const`, `CwStatesOf` and `CwEventsOf` give its state names and event keys as unions.
+
+```ts
+import { machine, type CwStatesOf, type CwEventsOf } from 'cogwheel';
+
+const config = {
+  init: 'green',
+  states: { green: { CHANGE: 'yellow' }, yellow: { CHANGE: 'green', RESET: 'green' } },
+} as const;
+
+type States = CwStatesOf<typeof config>; // 'green' | 'yellow'
+type Events = CwEventsOf<typeof config>; // 'CHANGE' | 'RESET'
+const light = machine(config);
+```
+
 Two things to know:
 
 - A configuration declared in a separate `const` needs `as const`, otherwise TypeScript widens `'yellow'` to `string` before `machine` sees it.

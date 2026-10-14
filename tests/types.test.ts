@@ -1,5 +1,11 @@
 import { test, expect, expectTypeOf } from "vitest";
-import { machine, nextState, type CwAction } from "../src";
+import {
+  machine,
+  nextState,
+  type CwAction,
+  type CwEventsOf,
+  type CwStatesOf,
+} from "../src";
 
 // Type-level checks, verified by `pnpm typecheck`: expectTypeOf asserts exact
 // types (no-op at runtime); the ts-expect-error lines assert rejections.
@@ -50,6 +56,19 @@ test("types - pre-declared config keeps working with `as const`", () => {
   const service = machine({ init: "on", states });
   expectTypeOf(service.current).toEqualTypeOf<"on" | "off">();
   expect(service.current).toBe("on");
+});
+
+test("types - state and event unions from a config", () => {
+  const config = {
+    init: "on",
+    states: {
+      on: { TOGGLE: "off", _entry: [] },
+      off: { TOGGLE: "on", RESET: "off" },
+    },
+  } as const;
+  machine(config);
+  expectTypeOf<CwStatesOf<typeof config>>().toEqualTypeOf<"on" | "off">();
+  expectTypeOf<CwEventsOf<typeof config>>().toEqualTypeOf<"TOGGLE" | "RESET">();
 });
 
 test("types - nextState returns the state union", () => {
