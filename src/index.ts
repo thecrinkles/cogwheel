@@ -87,6 +87,18 @@ export type CwMachine<
   listen: Listen<C, E>;
 };
 
+// Unions of a config's state names and event keys: `CwStatesOf<typeof config>`
+type ConfigStates<T extends { states: object }> = T["states"];
+export type CwStatesOf<T extends { states: object }> = keyof ConfigStates<T> &
+  string;
+export type CwEventsOf<T extends { states: object }> = Exclude<
+  {
+    [K in keyof ConfigStates<T>]: keyof ConfigStates<T>[K];
+  }[keyof ConfigStates<T>],
+  "_entry" | "_exit"
+> &
+  string;
+
 /**
  * Constants
  */
@@ -161,7 +173,7 @@ export function machine<
   // Get partial information of the machine
   function partial(): CwMachineState<C> {
     const { id, context, current } = _state;
-    return { id, current, context: JSON.parse(JSON.stringify(context)) };
+    return { id, current, context: structuredClone(context) };
   }
 
   // Execution of a send action

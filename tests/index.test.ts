@@ -355,6 +355,23 @@ test("listener - nested context maintains state", () => {
   remove();
 });
 
+test("context - non-JSON values reach guards intact", () => {
+  const service = machine({
+    init: "a",
+    context: { at: new Date(0), tags: new Set(["x"]) },
+    states: {
+      a: {
+        GO: {
+          target: "a",
+          guard: ({ context }) =>
+            context.at instanceof Date && context.tags.has("x"),
+        },
+      },
+    },
+  });
+  expect(service.send({ type: "GO" })).toBe(true);
+});
+
 test("nextState - returns the target or undefined", () => {
   expect(nextState(configDefault, "green", { type: "CHANGE" })).toBe("yellow");
   expect(nextState(configDefault, "red", { type: "CHANGE" })).toBeUndefined();
