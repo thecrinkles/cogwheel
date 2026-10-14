@@ -391,3 +391,60 @@ test("nextState - guards see the given context, which is not frozen", () => {
   ).toBeUndefined();
   expect(Object.isFrozen(ctx)).toBe(false);
 });
+
+test("Send - _entry, _exit and inherited keys are not events", () => {
+  const states = {
+    green: { CHANGE: "red", _entry: [], _exit: [] },
+    red: {},
+  } as const;
+  const service = machine({ init: "green", states });
+  for (const type of ["_entry", "_exit", "toString", "constructor"]) {
+    expect(service.send({ type })).toBe(false);
+    expect(service.current).toBe("green");
+    expect(nextState(states, "green", { type })).toBeUndefined();
+  }
+  expect(service.send({ type: "CHANGE" })).toBe(true);
+  expect(service.current).toBe("red");
+});
+
+test("context - guards, actions and listeners get the machine's own object", () => {
+  class Money {
+    constructor(readonly cents: number) {}
+  }
+  const seen: unknown[] = [];
+  const service = machine({
+    init: "a",
+    context: { price: new Money(1), fmt: (n: number) => `${n}` },
+    states: {
+      a: {
+        GO: {
+          target: "b",
+          guard: ({ context }) => context.price instanceof Money,
+          actions: [({ state }) => seen.push(state.context)],
+        },
+      },
+      b: {},
+    },
+  });
+  service.listen(({ state }) => seen.push(state.context));
+  expect(service.send({ type: "GO" })).toBe(true);
+  expect(seen).toEqual([service.context, service.context]);
+  expect(seen.every((c) => c === service.context)).toBe(true);
+});
+
+test("nextState - runs no actions and schedules no sends", () => {
+  vi.useFakeTimers();
+  const run = vi.fn();
+  const states = {
+    idle: {
+      _entry: [run, ({ send }) => send({ type: "GO" }, 100)],
+      _exit: [run],
+      GO: { target: "busy", actions: [run] },
+    },
+    busy: { _entry: [run] },
+  } as const;
+  expect(nextState(states, "idle", { type: "GO" })).toBe("busy");
+  expect(run).not.toHaveBeenCalled();
+  expect(vi.getTimerCount()).toBe(0);
+  vi.useRealTimers();
+});
