@@ -184,7 +184,6 @@ export function machine<
 
   // Get partial information of the machine. The context is passed as is: it is
   // deep-frozen already, and a copy would strip class instances and functions.
-  // ponytail: freezing doesn't stop Map.set, Set.add or Date.setTime on it.
   function partial(): CwMachineState<C> {
     const { id, context, current } = _state;
     return { id, current, context };
