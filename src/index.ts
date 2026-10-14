@@ -173,7 +173,7 @@ export function machine<
   // Get partial information of the machine
   function partial(): CwMachineState<C> {
     const { id, context, current } = _state;
-    return { id, current, context: JSON.parse(JSON.stringify(context)) };
+    return { id, current, context: structuredClone(context) };
   }
 
   // Execution of a send action
