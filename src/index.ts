@@ -146,6 +146,18 @@ function validate(
   return valid ? undefined : MachineErrors.target;
 }
 
+// The transition `state` has for `type`. Own keys only, so `_entry`, `_exit` and
+// inherited keys like `toString` are not events.
+function find<C extends object, E extends CwEvent, S extends string>(
+  state: LooseState<C, E, S>,
+  type: string,
+): CwTransition<C, E, S> | undefined {
+  if (type === "_entry" || type === "_exit" || !Object.hasOwn(state, type))
+    return;
+  const t = state[type] as S | CwTransition<C, E, S> | undefined;
+  return typeof t === "string" ? { target: t } : t;
+}
+
 // wrap a machine in a service
 export function machine<
   C extends object,
@@ -170,10 +182,12 @@ export function machine<
     },
   };
 
-  // Get partial information of the machine
+  // Get partial information of the machine. The context is passed as is: it is
+  // deep-frozen already, and a copy would strip class instances and functions.
+  // ponytail: freezing doesn't stop Map.set, Set.add or Date.setTime on it.
   function partial(): CwMachineState<C> {
     const { id, context, current } = _state;
-    return { id, current, context: structuredClone(context) };
+    return { id, current, context };
   }
 
   // Execution of a send action
@@ -200,22 +214,17 @@ export function machine<
 
   // function to execute the state machine
   function transition(event: E): boolean {
-    let target: S, guard, actions;
-    const transition = states[_state.current][event.type];
-    if (!transition) return false;
-    if (typeof transition === "string") target = transition;
-    else ({ target, guard, actions } = transition as CwTransition<C, E, S>);
-
+    const t = find(states[_state.current], event.type);
     // guard holds result
-    if (guard && !guard(partial())) return false;
+    if (!t || (t.guard && !t.guard(partial()))) return false;
 
     // Invoke exit effects
     execute(event, states[_state.current]._exit);
     // Invoke transition effects
-    execute(event, actions);
+    execute(event, t.actions);
 
     // update state
-    _state.current = target;
+    _state.current = t.target;
 
     // Invoke entry effects
     execute(event, states[_state.current]._entry);
@@ -231,8 +240,7 @@ export function machine<
 }
 
 // Stateless step: the state `from` moves to on `event`, or undefined if it doesn't.
-// ponytail: builds a throwaway machine per call, so from's _entry runs again and
-// context changes made by actions are discarded.
+// A lookup plus the guard; no actions run.
 export function nextState<
   C extends object,
   E extends CwEvent = CwEvent,
@@ -243,8 +251,11 @@ export function nextState<
   event: E,
   context?: C,
 ): S | undefined {
-  // clone: machine() deep-freezes its context in place, don't freeze the caller's
-  const ctx = context && structuredClone(context);
-  const step = machine<C, E, S>({ init: from, states, context: ctx });
-  return step.send(event) ? step.current : undefined;
+  const state = (states as Record<string, LooseState<C, E, S>>)[from];
+  if (!state) throw Error(MachineErrors.init);
+  const t = find(state, event.type);
+  const ctx = context ?? ({} as C);
+  return t && (!t.guard || t.guard({ id: "", current: from, context: ctx }))
+    ? t.target
+    : undefined;
 }

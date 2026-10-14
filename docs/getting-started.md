@@ -37,11 +37,11 @@ nextState(states, 'green', { type: 'CHANGE' }); // 'yellow'
 nextState(states, 'red', { type: 'UNKNOWN' }); // undefined
 ```
 
-Each call creates a throwaway machine, so guards and actions run as usual. Pass the optional `context` when guards or actions need it; it is copied, not frozen. Changes that actions make to the context are discarded, only the state name is returned.
+It only looks up the transition and runs its guard; no `_entry`, `_exit` or transition actions run. Pass the optional `context` when a guard needs it; it is passed as is, not copied or frozen.
 
 ## Context
 
-The machine can carry a context, which makes it an 'extended finite state machine'. Provide the initial value with the `context` property of the configuration and read it via `service.context`. The context is deep-frozen; it changes through the `assign` function inside [actions](./actions.md).
+The machine can carry a context, which makes it an 'extended finite state machine'. Provide the initial value with the `context` property of the configuration and read it via `service.context`. The context is deep-frozen; it changes through the `assign` function inside [actions](./actions.md). Actions, guards and listeners get the same object as `service.context`, so class instances and functions stay intact. Freezing doesn't reach inside a `Map`, `Set` or `Date`, so don't mutate those in place.
 
 ```ts
 const counter = machine({

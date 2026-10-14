@@ -29,11 +29,11 @@ const updateAction: CwAction<Context, FormEvent> = ({
   event,
   assign,
 }) => {
-  const _ctx = { ...state.context };
-  const _e = event as ModifierEvent;
-  _ctx.values[_e.key] = _e.value;
-  _ctx.errors[_e.key] = "";
-  assign(_ctx);
+  const { key, value } = event as ModifierEvent;
+  assign({
+    values: { ...state.context.values, [key]: value },
+    errors: { ...state.context.errors, [key]: "" },
+  });
 };
 
 const initAction: CwAction<Context, FormEvent> = ({ event, assign }) => {
